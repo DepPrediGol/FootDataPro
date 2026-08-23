@@ -370,6 +370,17 @@ if archivos_csv:
                 equipo_local = fila['home_team']
                 equipo_visitante = fila['away_team']
                 
+                # 1. Extraemos la fecha y hora de la fila actual (usamos .get por si algún CSV no tiene la columna)
+                fecha = str(fila.get('date', ''))
+                hora = str(fila.get('time', ''))
+                
+                # 2. Formateamos el texto para que se vea bonito
+                texto_fecha_hora = ""
+                if fecha != "nan" and fecha.strip() != "":
+                    texto_fecha_hora += f" 📅 {fecha}"
+                if hora != "nan" and hora.strip() != "":
+                    texto_fecha_hora += f" ⏰ {hora}"
+                
                 df_local_todos = df_jugados[df_jugados['home_team'] == equipo_local]
                 df_vis_todos = df_jugados[df_jugados['away_team'] == equipo_visitante]
                 
@@ -388,7 +399,8 @@ if archivos_csv:
                     partidos_analizados_total += 1
                     
                     with st.container(border=True):
-                        st.markdown(f"<h3 style='color: #3498db; margin-top: 0; margin-bottom: 20px;'>⚽ {equipo_local} vs {equipo_visitante}</h3>", unsafe_allow_html=True)
+                        # 3. AQUÍ ACTUALIZAMOS EL TÍTULO PARA INCLUIR LA FECHA Y HORA
+                        st.markdown(f"<h3 style='color: #3498db; margin-top: 0; margin-bottom: 20px;'>⚽ {equipo_local} vs {equipo_visitante} <span style='font-size: 15px; color: #bdc3c7; font-weight: 500; margin-left: 12px;'>{texto_fecha_hora}</span></h3>", unsafe_allow_html=True)
                         
                         lista_apuestas_liga.append({
                             "local": equipo_local,
