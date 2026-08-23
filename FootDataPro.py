@@ -4,8 +4,45 @@ import numpy as np
 from scipy.stats import poisson
 import os
 from groq import Groq
+import requests
 
 st.set_page_config(page_title="FootDataPro", layout="wide")
+
+# ==========================================
+# 0. INICIALIZACIÓN DE LA IA Y API DE CUOTAS
+# ==========================================
+try:
+    cliente_ia = Groq(api_key=st.secrets["GROQ_API_KEY"])
+    ia_activa = True
+except Exception as e:
+    cliente_ia = None
+    ia_activa = False
+
+def buscar_cuotas_reales(equipo_local, equipo_vis, deporte="soccer_usa_mls"):
+    """Descarga las cuotas reales de The Odds API y busca el partido."""
+    api_key = st.secrets.get("ODDS_API_KEY")
+    if not api_key:
+        return None
+    url = f"https://api.the-odds-api.com/v4/sports/{deporte}/odds"
+    
+    try:
+        respuesta = requests.get(url, params={
+            "apiKey": api_key, 
+            "regions": "us", 
+            "markets": "h2h", 
+            "oddsFormat": "decimal"
+        })
+        
+        if respuesta.status_code == 200:
+            datos = respuesta.json()
+            for partido in datos:
+                if equipo_local[:4].lower() in partido['home_team'].lower() or equipo_vis[:4].lower() in partido['away_team'].lower():
+                    if 'bookmakers' in partido and len(partido['bookmakers']) > 0:
+                        return partido['bookmakers'][0]['markets'][0]['outcomes']
+        return None
+    except Exception as e:
+        return None
+
 
 # ==========================================
 # REPARACIÓN DE COLOR: BARRA LATERAL OSCURA
@@ -466,8 +503,7 @@ if archivos_csv:
                         
                         def cuota_justa(prob):
                             return round(100 / prob, 2) if prob > 0 else 0.00
-                        
-                        # Calculamos la probabilidad del BTTS No (100% menos la probabilidad del BTTS Sí)
+                            
                         prob_btts_no = 100 - probs['BTTS %']
                             
                         cuotas_datos = [
