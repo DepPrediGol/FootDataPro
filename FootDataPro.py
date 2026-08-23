@@ -496,16 +496,20 @@ if archivos_csv:
                         st.write("")
                         
                         # ==========================================
-                        # 💎 DETECTOR DE CUOTAS JUSTAS (VALUE BETS)
+                        # 💎 DETECTOR DE CUOTAS JUSTAS VS API
                         # ==========================================
-                        st.write("⚖️ **Cuotas Justas Estimadas (Si la casa paga más que esto, hay valor)**")
+                        st.write("⚖️ **Comparativa: Cuota Justa vs. Cuota Real de la API**")
+                        
+                        # Llamamos a la API para este partido específico
+                        cuotas_api = buscar_cuotas_reales(equipo_local, equipo_visitante)
+                        
                         cj_col1, cj_col2, cj_col3, cj_col4, cj_col5, cj_col6, cj_col7 = st.columns(7)
                         
                         def cuota_justa(prob):
                             return round(100 / prob, 2) if prob > 0 else 0.00
                             
                         prob_btts_no = 100 - probs['BTTS %']
-                            
+                        
                         cuotas_datos = [
                             ("Local", cuota_justa(probs['Local %']), cj_col1),
                             ("Empate", cuota_justa(probs['Empate %']), cj_col2),
@@ -518,10 +522,29 @@ if archivos_csv:
                         
                         for etiqueta, cuota, columna in cuotas_datos:
                             with columna:
+                                # Estilo por defecto (amarillo)
+                                color_borde = "rgba(241, 196, 15, 0.6)"
+                                fondo = "rgba(241, 196, 15, 0.05)"
+                                texto_extra = ""
+                                
+                                # Si la API trajo datos para el local, evaluamos si hay valor
+                                if cuotas_api and etiqueta == "Local":
+                                    for outcome in cuotas_api:
+                                        if equipo_local[:4].lower() in outcome['name'].lower():
+                                            cuota_real = outcome['price']
+                                            # Si la cuota real de la casa es MAYOR que la justa, hay valor (+EV)
+                                            if cuota_real > cuota:
+                                                color_borde = "#2ecc71"
+                                                fondo = "rgba(46, 204, 113, 0.15)"
+                                                texto_extra = f"<div style='font-size: 10px; color: #2ecc71; font-weight: bold;'>¡Valor! @{cuota_real}</div>"
+                                            else:
+                                                texto_extra = f"<div style='font-size: 10px; opacity: 0.7;'>Real: @{cuota_real}</div>"
+
                                 st.markdown(f"""
-                                <div style="text-align: center; padding: 6px; border-radius: 6px; background-color: rgba(241, 196, 15, 0.05); border: 1px dashed rgba(241, 196, 15, 0.6);">
+                                <div style="text-align: center; padding: 6px; border-radius: 6px; background-color: {fondo}; border: 1px dashed {color_borde};">
                                     <div style="font-size: 11px; color: #f1c40f; font-weight: 600;">Cuota {etiqueta}</div>
                                     <div style="font-size: 17px; font-weight: bold; color: #f1c40f;">@{cuota}</div>
+                                    {texto_extra}
                                 </div>
                                 """, unsafe_allow_html=True)
                         
