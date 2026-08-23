@@ -450,17 +450,22 @@ if archivos_csv:
                         # 💎 DETECTOR DE CUOTAS JUSTAS (VALUE BETS)
                         # ==========================================
                         st.write("⚖️ **Cuotas Justas Estimadas (Si la casa paga más que esto, hay valor)**")
-                        cj_col1, cj_col2, cj_col3, cj_col4, cj_col5 = st.columns(5)
+                        cj_col1, cj_col2, cj_col3, cj_col4, cj_col5, cj_col6, cj_col7 = st.columns(7)
                         
                         def cuota_justa(prob):
                             return round(100 / prob, 2) if prob > 0 else 0.00
+                        
+                        # Calculamos la probabilidad del BTTS No (100% menos la probabilidad del BTTS Sí)
+                        prob_btts_no = 100 - probs['BTTS %']
                             
                         cuotas_datos = [
                             ("Local", cuota_justa(probs['Local %']), cj_col1),
                             ("Empate", cuota_justa(probs['Empate %']), cj_col2),
                             ("Visitante", cuota_justa(probs['Visitante %']), cj_col3),
                             ("+1.5", cuota_justa(probs['Over 1.5 %']), cj_col4),
-                            ("+2.5", cuota_justa(probs['Over 2.5 %']), cj_col5)
+                            ("+2.5", cuota_justa(probs['Over 2.5 %']), cj_col5),
+                            ("BTTS Sí", cuota_justa(probs['BTTS %']), cj_col6),
+                            ("BTTS No", cuota_justa(prob_btts_no), cj_col7)
                         ]
                         
                         for etiqueta, cuota, columna in cuotas_datos:
