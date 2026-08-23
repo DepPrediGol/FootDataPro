@@ -9,7 +9,7 @@ import requests
 st.set_page_config(page_title="FootDataPro", layout="wide")
 
 # ==========================================
-# 0. INICIALIZACIÓN DE LA IA Y API DE CUOTAS GLOBAL
+# 0. INICIALIZACIÓN DE LA IA Y API DE CUOTAS
 # ==========================================
 try:
     cliente_ia = Groq(api_key=st.secrets["GROQ_API_KEY"])
@@ -18,45 +18,30 @@ except Exception as e:
     cliente_ia = None
     ia_activa = False
 
-def buscar_cuotas_reales(equipo_local, equipo_vis):
-    """Busca cuotas en tiempo real para cualquier liga del mundo usando The Odds API."""
+def buscar_cuotas_reales(equipo_local, equipo_vis, deporte="soccer_usa_mls"):
+    """Descarga las cuotas reales de The Odds API y busca el partido."""
     api_key = st.secrets.get("ODDS_API_KEY")
     if not api_key:
         return None
+    url = f"https://api.the-odds-api.com/v4/sports/{deporte}/odds"
     
-    # Lista de endpoints clave para abarcar torneos del mundo (Europa, América, etc.)
-    deportes_a_buscar = [
-        "soccer_epl", "soccer_spain_la_liga", "soccer_italy_serie_a", 
-        "soccer_germany_bundesliga", "soccer_france_ligue_one", 
-        "soccer_usa_mls", "soccer_copa_libertadores", "soccer_copa_sudamericana"
-    ]
-    
-    for deporte in deportes_a_buscar:
-        url = f"https://api.the-odds-api.com/v4/sports/{deporte}/odds"
-        try:
-            respuesta = requests.get(url, params={
-                "apiKey": api_key, 
-                "regions": "us,eu", 
-                "markets": "h2h", 
-                "oddsFormat": "decimal"
-            }, timeout=3)
-            
-            if respuesta.status_code == 200:
-                datos = respuesta.json()
-                for partido in datos:
-                    api_home = partido.get('home_team', '').lower()
-                    api_away = partido.get('away_team', '').lower()
-                    
-                    palabra_local = equipo_local.split()[0].lower()
-                    palabra_vis = equipo_vis.split()[0].lower()
-                    
-                    if palabra_local in api_home or palabra_vis in api_away:
-                        if 'bookmakers' in partido and len(partido['bookmakers']) > 0:
-                            return partido['bookmakers'][0]['markets'][0]['outcomes']
-        except:
-            continue
-            
-    return None
+    try:
+        respuesta = requests.get(url, params={
+            "apiKey": api_key, 
+            "regions": "us", 
+            "markets": "h2h", 
+            "oddsFormat": "decimal"
+        })
+        
+        if respuesta.status_code == 200:
+            datos = respuesta.json()
+            for partido in datos:
+                if equipo_local[:4].lower() in partido['home_team'].lower() or equipo_vis[:4].lower() in partido['away_team'].lower():
+                    if 'bookmakers' in partido and len(partido['bookmakers']) > 0:
+                        return partido['bookmakers'][0]['markets'][0]['outcomes']
+        return None
+    except Exception as e:
+        return None
 
 
 # ==========================================
@@ -64,12 +49,15 @@ def buscar_cuotas_reales(equipo_local, equipo_vis):
 # ==========================================
 st.markdown("""
 <style>
+    /* Forzar el fondo de la barra lateral a color oscuro */
     [data-testid="stSidebar"] {
         background-color: #0e1117 !important;
     }
+    /* Forzar que todos los textos en la barra lateral sean legibles (blancos/grises claros) */
     [data-testid="stSidebar"] * {
         color: #ffffff !important;
     }
+    /* Ajustar el color del fondo principal de la barra */
     section[data-testid="stSidebar"] .css-ng1t4o {
         background-color: #0e1117 !important;
     }
@@ -92,9 +80,20 @@ st.sidebar.markdown("---")
 st.sidebar.info("💡 Si dejas un control en 0, la aplicación mostrará todos los partidos sin filtrar esa métrica.")
 
 # ==========================================
+# 0. INICIALIZACIÓN DE LA IA (GROQ)
+# ==========================================
+try:
+    cliente_ia = Groq(api_key=st.secrets["GROQ_API_KEY"])
+    ia_activa = True
+except Exception as e:
+    cliente_ia = None
+    ia_activa = False
+
+# ==========================================
 # CEREBRO ANALÍTICO LOCAL (MOTOR INTELIGENTE)
 # ==========================================
 def generar_analisis_groq(local, visitante, prob_local, prob_empate, prob_visit, prob_over, prob_btts):
+    """Genera un análisis experto dinámico basado en reglas ponderadas de Poisson."""
     favorito = local if prob_local > prob_visit else visitante
     max_prob = max(prob_local, prob_visit)
     
@@ -122,7 +121,7 @@ def generar_analisis_groq(local, visitante, prob_local, prob_empate, prob_visit,
     return analisis_final
 
 # ==========================================
-# BLOQUE DE ESTILOS Y FONDO
+# 0. BLOQUE DE ESTILOS Y FONDO (Bordes Verdes)
 # ==========================================
 st.markdown(
     """
@@ -134,18 +133,28 @@ st.markdown(
         background-repeat: no-repeat !important;
         background-attachment: fixed !important;
     }
+    
     h1, h2, h3, h4, h5, h6, p, label, .stMarkdown, .stText {
         color: #ffffff !important;
     }
+
     [data-testid="stHeader"] {
         background-color: transparent !important;
     }
+
     [data-testid="stFileUploader"] {
         background-color: rgba(22, 27, 34, 0.95) !important;
         padding: 20px !important;
         border-radius: 14px !important;
         border: 2px dashed rgba(46, 204, 113, 0.6) !important;
     }
+
+    [data-testid="stFileUploader"] [data-testid="stUploadedFile"] *,
+    [data-testid="stFileUploader"] [data-baseweb="tag"] * {
+        color: #000000 !important;
+        font-weight: 700 !important;
+    }
+
     [data-testid="stFileUploader"] button {
         background-color: #2ecc71 !important;
         color: #ffffff !important;
@@ -153,6 +162,19 @@ st.markdown(
         border-radius: 8px !important;
         border: none !important;
         padding: 0.5rem 1rem !important;
+    }
+    
+    [data-testid="stFileUploader"] button:hover {
+        background-color: #27ae60 !important;
+        color: #ffffff !important;
+    }
+
+    div.element-container div.stMarkdown, div[data-testid="stVerticalBlock"] > div {
+        border-color: rgba(46, 204, 113, 0.4) !important;
+    }
+    
+    .stExpander, div.css-1r6slb0, div[data-testid="stHorizontalBlock"] {
+        border-radius: 10px !important;
     }
     </style>
     """,
@@ -162,6 +184,7 @@ st.markdown(
 # ==========================================
 # 1. BLOQUE DE FUNCIONES MATEMÁTICAS
 # ==========================================
+
 def calcular_probabilidades(xg_local, xg_vis):
     max_goles = 5
     prob_matriz = np.zeros((max_goles+1, max_goles+1))
@@ -194,6 +217,7 @@ def calcular_probabilidades(xg_local, xg_vis):
         "Top 5 Marcadores": top_5
     }
 
+
 def obtener_racha_detallada(df_partidos, es_local):
     df_recientes = df_partidos.head(10)
     if len(df_recientes) == 0:
@@ -222,7 +246,33 @@ def obtener_racha_detallada(df_partidos, es_local):
             p += 1
             resultados_html.append(f'<span style="background-color: rgba(231, 76, 60, 0.15); color: #e74c3c; padding: 2px 6px; border-radius: 4px; font-weight: bold; margin-right: 4px; font-size: 12px;">❌ {marcador_str}</span>')
             
-    return f"{g}G - {e}E - {p}P", "".join(resultados_html), round(goles_totales_fav / len(df_recientes), 2)
+    racha_texto = f"{g}G - {e}E - {p}P"
+    marcadores_texto = "".join(resultados_html)
+    promedio_goles = round(goles_totales_fav / len(df_recientes), 2)
+    
+    return racha_texto, marcadores_texto, promedio_goles
+
+
+def obtener_prediccion_fuerte(probs):
+    alertas = []
+    if probs['Local %'] >= 60:
+        alertas.append("🔥 Fuerte tendencia a victoria del **Local**")
+    elif probs['Visitante %'] >= 55:
+        alertas.append("🔥 Fuerte tendencia a victoria del **Visitante**")
+        
+    if probs['Over 2.5 %'] >= 65:
+        alertas.append("⚽ Alta probabilidad de **+2.5 Goles**")
+        
+    if probs['BTTS %'] >= 65:
+        alertas.append("🥅 Alta probabilidad de **Ambos Anotan (BTTS)**")
+        
+    if not alertas:
+        if probs['Empate %'] >= 30:
+            return "⚖️ **Análisis:** Partido muy cerrado, probabilidad considerable de Empate."
+        return "⚖️ **Análisis:** Partido sin una tendencia estadística abrumadora. Riesgo moderado."
+        
+    return "💡 **Alta Probabilidad:** " + " | ".join(alertas)
+
 
 def obtener_top_4_fijas(lista_predicciones_jornada):
     candidatas = []
@@ -232,30 +282,59 @@ def obtener_top_4_fijas(lista_predicciones_jornada):
         p = item['probs']
         
         if p['Local %'] >= 55:
-            candidatas.append({'partido': f"{local} vs {vis}", 'tipo': 'Victoria Local', 'valor': p['Local %'], 'razón': f"Tendencia local del {p['Local %']}%."})
+            candidatas.append({
+                'partido': f"{local} vs {vis}",
+                'tipo': 'Victoria Local',
+                'valor': p['Local %'],
+                'razón': f"El equipo local presenta una tendencia estadística de victoria del {p['Local %']}% basada en su rendimiento histórico de local."
+            })
         elif p['Visitante %'] >= 50:
-            candidatas.append({'partido': f"{local} vs {vis}", 'tipo': 'Victoria Visitante', 'valor': p['Visitante %'], 'razón': f"Superioridad visitante del {p['Visitante %']}%."})
+            candidatas.append({
+                'partido': f"{local} vs {vis}",
+                'tipo': 'Victoria Visitante',
+                'valor': p['Visitante %'],
+                'razón': f"El visitante muestra superioridad en los patrones del modelo con un {p['Visitante %']}% de probabilidad de triunfo fuera de casa."
+            })
+            
         if p['Over 2.5 %'] >= 65:
-            candidatas.append({'partido': f"{local} vs {vis}", 'tipo': 'Más de 2.5 Goles (+2.5)', 'valor': p['Over 2.5 %'], 'razón': f"Alta expectativa con {p['Over 2.5 %']}%."})
+            candidatas.append({
+                'partido': f"{local} vs {vis}",
+                'tipo': 'Más de 2.5 Goles (+2.5)',
+                'valor': p['Over 2.5 %'],
+                'razón': f"Alta expectativa de anotaciones con un {p['Over 2.5 %']}% de probabilidad de superar la línea de 2.5 goles en el global del encuentro."
+            })
+            
         if p['BTTS %'] >= 65:
-            candidatas.append({'partido': f"{local} vs {vis}", 'tipo': 'Ambos Anotan (BTTS Sí)', 'valor': p['BTTS %'], 'razón': f"Índice BTTS de {p['BTTS %']}%."})
+            candidatas.append({
+                'partido': f"{local} vs {vis}",
+                'tipo': 'Ambos Anotan (BTTS Sí)',
+                'valor': p['BTTS %'],
+                'razón': f"La matriz de Poisson refleja un índice de {p['BTTS %']}% de probabilidad de que ambos equipos consigan vulnerar la portería contraria."
+            })
 
     candidatas.sort(key=lambda x: x['valor'], reverse=True)
     return candidatas[:4]
 
+
 # ==========================================
-# 2. INTERFAZ Y CARGA DE ARCHIVOS
+# 2. BLOQUE DE INTERFAZ Y CABECERA (BANNER)
 # ==========================================
+
 st.markdown("""
 <div style="background: linear-gradient(135deg, rgba(46, 204, 113, 0.15) 0%, rgba(52, 152, 219, 0.15) 100%); padding: 20px; border-radius: 12px; border: 1px solid rgba(150, 150, 150, 0.2); margin-bottom: 20px;">
     <h2 style="margin: 0; color: #2ecc71;">⚽ FootDataPro </h2>
     <p style="margin: 5px 0 0 0; opacity: 0.85; font-size: 15px;">
-        Sistema inteligente automatizado por bloques de Poisson y análisis en tiempo real.
+        Sistema inteligente automatizado por bloques de Poisson. Adjunta tus bases de datos en formato CSV para generar la lectura de la jornada actual y el Top 4 de apuestas fijas.
     </p>
 </div>
 """, unsafe_allow_html=True)
 
 archivos_csv = st.file_uploader("📂 Adjunta tus bases de datos (.csv)", type=["csv"], accept_multiple_files=True)
+
+
+# ==========================================
+# 3. BLOQUE DE PROCESAMIENTO POR PESTAÑAS
+# ==========================================
 
 if archivos_csv:
     st.markdown("---")
@@ -271,7 +350,7 @@ if archivos_csv:
             
             columnas_req = ['home_team', 'away_team', 'result', 'status']
             if not all(col in df.columns for col in columnas_req):
-                st.error(f"⚠️ El archivo {archivo.name} no tiene las columnas requeridas.")
+                st.error(f"⚠️ El archivo {archivo.name} no tiene las columnas requeridas y fue omitido.")
                 continue
                 
             df['status_clean'] = df['status'].astype(str).str.strip().str.capitalize()
@@ -281,26 +360,45 @@ if archivos_csv:
             df_jugados = df_jugados[df_jugados['result'].str.contains('-')] 
             df_jugados[['Goles_Local', 'Goles_Visitante']] = df_jugados['result'].str.split('-', expand=True).astype(float)
             
+            if 'date' in df_jugados.columns:
+                try:
+                    df_jugados['date_parsed'] = pd.to_datetime(df_jugados['date'], format='%d/%m/%Y', errors='coerce')
+                    df_jugados = df_jugados.sort_values(by='date_parsed', ascending=False)
+                except:
+                    pass
+
             if 'date' in df.columns and 'matchday' in df.columns:
                 df['date_parsed_full'] = pd.to_datetime(df['date'], format='%d/%m/%Y', errors='coerce')
                 df_pendientes = df[df['status'].astype(str).str.strip().str.capitalize() != 'Final'].copy()
+                df_pendientes['date_parsed_full'] = pd.to_datetime(df_pendientes['date'], format='%d/%m/%Y', errors='coerce')
+                
                 hoy = pd.Timestamp.now().normalize()
                 df_proximos_reales = df_pendientes[df_pendientes['date_parsed_full'] >= hoy].sort_values('date_parsed_full')
                 
                 if not df_proximos_reales.empty:
                     df_proximos_reales['matchday_clean'] = pd.to_numeric(df_proximos_reales['matchday'], errors='coerce')
                     jornada_actual = df_proximos_reales.iloc[0]['matchday_clean']
+                    
                     df_solo_jornada_siguiente = df[
                         (pd.to_numeric(df['matchday'], errors='coerce') == jornada_actual) & 
                         (df['status'].astype(str).str.strip().str.capitalize() != 'Final')
                     ].copy()
+                    
+                    st.info(f"📅 **Jornada actual detectada:** Matchday {int(jornada_actual)}")
                 else:
                     df_solo_jornada_siguiente = df_proximos.head(10)
             else:
-                df_solo_jornada_siguiente = df_proximos.head(10)
+                equipos_en_jornada = set()
+                jornada_siguiente = []
+                for index, fila in df_proximos.iterrows():
+                    if fila['home_team'] not in equipos_en_jornada and fila['away_team'] not in equipos_en_jornada:
+                        jornada_siguiente.append(fila)
+                        equipos_en_jornada.add(fila['home_team'])
+                        equipos_en_jornada.add(fila['away_team'])
+                df_solo_jornada_siguiente = pd.DataFrame(jornada_siguiente)
             
             if len(df_solo_jornada_siguiente) == 0:
-                st.warning(f"No se detectaron partidos próximos para {nombre_liga}.")
+                st.warning(f"No se detectaron partidos próximos para la liga {nombre_liga}.")
                 continue
 
             lista_apuestas_liga = []
@@ -309,8 +407,11 @@ if archivos_csv:
                 equipo_local = fila['home_team']
                 equipo_visitante = fila['away_team']
                 
+                # 1. Extraemos la fecha y hora de la fila actual (usamos .get por si algún CSV no tiene la columna)
                 fecha = str(fila.get('date', ''))
                 hora = str(fila.get('time', ''))
+                
+                # 2. Formateamos el texto para que se vea bonito
                 texto_fecha_hora = ""
                 if fecha != "nan" and fecha.strip() != "":
                     texto_fecha_hora += f" 📅 {fecha}"
@@ -335,6 +436,7 @@ if archivos_csv:
                     partidos_analizados_total += 1
                     
                     with st.container(border=True):
+                        # 3. AQUÍ ACTUALIZAMOS EL TÍTULO PARA INCLUIR LA FECHA Y HORA
                         st.markdown(f"<h3 style='color: #3498db; margin-top: 0; margin-bottom: 20px;'>⚽ {equipo_local} vs {equipo_visitante} <span style='font-size: 15px; color: #bdc3c7; font-weight: 500; margin-left: 12px;'>{texto_fecha_hora}</span></h3>", unsafe_allow_html=True)
                         
                         lista_apuestas_liga.append({
@@ -347,6 +449,7 @@ if archivos_csv:
                         racha_vis, marcadores_vis, prom_vis = obtener_racha_detallada(df_vis_todos, es_local=False)
                         
                         col_r1, col_r2 = st.columns(2)
+                        
                         with col_r1:
                             st.markdown(f"""
                             <div style="background-color: rgba(46, 204, 113, 0.05); border-left: 4px solid #2ecc71; padding: 12px; border-radius: 0 8px 8px 0;">
@@ -368,6 +471,7 @@ if archivos_csv:
                             """, unsafe_allow_html=True)
                             
                         st.write("") 
+                        
                         st.write("**Probabilidades Generales (Basado en el total del historial)**")
                         p_col1, p_col2, p_col3, p_col4, p_col5, p_col6 = st.columns(6)
                         
@@ -392,9 +496,11 @@ if archivos_csv:
                         st.write("")
                         
                         # ==========================================
-                        # 💎 COMPARATIVA DE CUOTAS JUSTAS VS API
+                        # 💎 DETECTOR DE CUOTAS JUSTAS VS API
                         # ==========================================
                         st.write("⚖️ **Comparativa: Cuota Justa vs. Cuota Real de la API**")
+                        
+                        # Llamamos a la API para este partido específico
                         cuotas_api = buscar_cuotas_reales(equipo_local, equipo_visitante)
                         
                         cj_col1, cj_col2, cj_col3, cj_col4, cj_col5, cj_col6, cj_col7 = st.columns(7)
@@ -416,14 +522,17 @@ if archivos_csv:
                         
                         for etiqueta, cuota, columna in cuotas_datos:
                             with columna:
+                                # Estilo por defecto (amarillo)
                                 color_borde = "rgba(241, 196, 15, 0.6)"
                                 fondo = "rgba(241, 196, 15, 0.05)"
                                 texto_extra = ""
                                 
+                                # Si la API trajo datos para el local, evaluamos si hay valor
                                 if cuotas_api and etiqueta == "Local":
                                     for outcome in cuotas_api:
                                         if equipo_local[:4].lower() in outcome['name'].lower():
                                             cuota_real = outcome['price']
+                                            # Si la cuota real de la casa es MAYOR que la justa, hay valor (+EV)
                                             if cuota_real > cuota:
                                                 color_borde = "#2ecc71"
                                                 fondo = "rgba(46, 204, 113, 0.15)"
@@ -442,8 +551,10 @@ if archivos_csv:
                         st.write("")
                         st.write("🎯 **Top 5 Marcadores Exactos**")
                         tm1, tm2, tm3, tm4, tm5 = st.columns(5)
+                        columnas_top = [tm1, tm2, tm3, tm4, tm5]
+                        
                         for i, (marcador, porcentaje) in enumerate(probs['Top 5 Marcadores']):
-                            with [tm1, tm2, tm3, tm4, tm5][i]:
+                            with columnas_top[i]:
                                 st.markdown(f"""
                                 <div style="text-align: center; padding: 10px; border-radius: 8px; background-color: rgba(150, 150, 150, 0.1);">
                                     <span style="font-size: 26px; font-weight: bold;">{marcador}</span><br>
@@ -452,30 +563,71 @@ if archivos_csv:
                                 """, unsafe_allow_html=True)
                         
                         st.write("")
-                        if ia_activa:
-                            with st.spinner(f"🤖 La IA está analizando {equipo_local} vs {equipo_visitante}..."):
-                                analisis_ia = generar_analisis_groq(equipo_local, equipo_visitante, probs['Local %'], probs['Empate %'], probs['Visitante %'], probs['Over 2.5 %'], probs['BTTS %'])
-                            st.markdown(f"""
-                            <div style="background-color: rgba(13, 17, 23, 0.95); border: 1px solid rgba(46, 204, 113, 0.5); border-left: 6px solid #2ecc71; border-radius: 8px; padding: 15px; margin-top: 15px;">
-                                <div style="color: #2ecc71; font-weight: bold; font-size: 16px; margin-bottom: 8px;">🤖 ANÁLISIS DE IA EN VIVO</div>
-                                <div style="color: #ffffff; font-size: 15px; line-height: 1.6;">{analisis_ia}</div>
+                        
+                        resumen_prediccion = obtener_prediccion_fuerte(probs)
+                        st.warning(resumen_prediccion) 
+                        
+                        # ==========================================
+                        # 🤖 INYECCIÓN DEL ANÁLISIS DE IA
+                        # ==========================================
+                        with st.spinner(f"🤖 La IA está analizando {equipo_local} vs {equipo_visitante}..."):
+                            analisis_ia = generar_analisis_groq(
+                                equipo_local, 
+                                equipo_visitante, 
+                                probs['Local %'], 
+                                probs['Empate %'], 
+                                probs['Visitante %'], 
+                                probs['Over 2.5 %'], 
+                                probs['BTTS %']
+                            )
+                            
+                        st.markdown(f"""
+                        <div style="background-color: rgba(13, 17, 23, 0.95); border: 1px solid rgba(46, 204, 113, 0.5); border-left: 6px solid #2ecc71; border-radius: 8px; padding: 15px; margin-top: 15px;">
+                            <div style="color: #2ecc71; font-weight: bold; font-size: 16px; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px;">
+                                🤖 Análisis de IA en Vivo
                             </div>
-                            """, unsafe_allow_html=True)
+                            <div style="color: #ffffff; font-size: 15px; line-height: 1.6; font-weight: 500;">
+                                {analisis_ia}
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
                 else:
-                    st.error(f"No hay suficientes datos históricos para {equipo_local} o {equipo_visitante}.")
+                    st.error(f"No hay suficientes datos históricos en el archivo para calcular las probabilidades de {equipo_local} o {equipo_visitante}.")
                 
+            # ==========================================
+            # 4. BLOQUE FINAL: TOP 4 PREDICCIONES MÁS FIJAS
+            # ==========================================
             if len(lista_apuestas_liga) > 0:
                 top_fijas = obtener_top_4_fijas(lista_apuestas_liga)
+                
                 if top_fijas:
                     st.markdown("---")
                     st.subheader("🔥 Top 4 Predicciones Más Fijas de la Fecha")
+                    st.write("Selección automática de las jugadas con mayor sustento estadístico de esta liga:")
+                    
                     cols_fijas = st.columns(2)
+                    
                     for idx, ap in enumerate(top_fijas):
-                        with cols_fijas[idx % 2]:
+                        col_actual = cols_fijas[idx % 2]
+                        
+                        with col_actual:
                             st.markdown(f"""
                             <div style="border: 2px solid rgba(46, 204, 113, 0.4); background-color: rgba(46, 204, 113, 0.05); padding: 15px; border-radius: 10px; margin-bottom: 12px;">
-                                <div style="font-size: 14px; font-weight: bold; color: #2ecc71; margin-bottom: 5px;">🎯 SELECCIÓN #{idx + 1} ({ap['valor']}%)</div>
-                                <div style="font-size: 18px; font-weight: bold; margin-bottom: 8px;">{ap['partido']}</div>
-                                <div style="font-size: 15px; font-weight: 600; color: #3498db;">👉 {ap['tipo']}</div>
+                                <div style="font-size: 14px; font-weight: bold; color: #2ecc71; margin-bottom: 5px;">
+                                    🎯 SELECCIÓN #{idx + 1} ({ap['valor']}%)
+                                </div>
+                                <div style="font-size: 18px; font-weight: bold; margin-bottom: 8px;">
+                                    {ap['partido']}
+                                </div>
+                                <div style="font-size: 15px; font-weight: 600; margin-bottom: 8px; color: #3498db;">
+                                    👉 {ap['tipo']}
+                                </div>
+                                <div style="font-size: 13px; opacity: 0.85; border-top: 1px solid rgba(150, 150, 150, 0.2); padding-top: 8px;">
+                                    💡 <b>Justificación:</b> {ap['razón']}
+                                </div>
                             </div>
                             """, unsafe_allow_html=True)
+                
+    if partidos_analizados_total > 0:
+        st.success(f"✅ Análisis global completado. Puedes navegar entre las diferentes ligas usando las pestañas de arriba.")
