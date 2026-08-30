@@ -9,11 +9,14 @@ import requests
 st.set_page_config(page_title="FootDataPro", layout="wide")
 
 # ==========================================
-# 0. INICIALIZACIÓN DE LA IA (GEMINI) Y API DE CUOTAS GLOBAL
+# 0. INICIALIZACIÓN DE LA IA Y API DE CUOTAS GLOBAL
 # ==========================================
+import os
+
 try:
+    # Configuramos la variable de entorno que lee el token de Google Cloud
+    os.environ["GEMINI_API_KEY"] = st.secrets["GEMINI_API_KEY"]
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-    # Usaremos el modelo flash que es rápido y eficiente para análisis rápidos
     cliente_ia = genai.GenerativeModel("gemini-1.5-flash")
     ia_activa = True
 except Exception as e:
