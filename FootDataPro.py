@@ -144,7 +144,8 @@ def generar_analisis_groq(local, visitante, prob_local, prob_empate, prob_visit,
         return respuesta.choices[0].message.content.strip()
     
     except Exception as e:
-        return "⚠️ Error de conexión con Groq: No se pudo generar el análisis en este momento."
+        # Esto te mostrará el error exacto en la app en lugar del mensaje genérico
+        return f"⚠️ Error técnico detallado: {str(e)}"
 
 # ==========================================
 # 0. BLOQUE DE ESTILOS Y FONDO (Bordes Verdes)
