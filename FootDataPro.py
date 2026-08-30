@@ -18,30 +18,48 @@ except Exception as e:
     cliente_ia = None
     ia_activa = False
 
-def buscar_cuotas_reales(equipo_local, equipo_vis, deporte="soccer_usa_mls"):
-    """Descarga las cuotas reales de The Odds API y busca el partido."""
+def buscar_cuotas_reales(equipo_local, equipo_vis):
+    """Busca cuotas de H2H, Totals (Goles) y BTTS usando The Odds API."""
     api_key = st.secrets.get("ODDS_API_KEY")
     if not api_key:
         return None
-    url = f"https://api.the-odds-api.com/v4/sports/{deporte}/odds"
     
-    try:
-        respuesta = requests.get(url, params={
-            "apiKey": api_key, 
-            "regions": "us", 
-            "markets": "h2h", 
-            "oddsFormat": "decimal"
-        })
-        
-        if respuesta.status_code == 200:
-            datos = respuesta.json()
-            for partido in datos:
-                if equipo_local[:4].lower() in partido['home_team'].lower() or equipo_vis[:4].lower() in partido['away_team'].lower():
-                    if 'bookmakers' in partido and len(partido['bookmakers']) > 0:
-                        return partido['bookmakers'][0]['markets'][0]['outcomes']
-        return None
-    except Exception as e:
-        return None
+    deportes_a_buscar = [
+        "soccer_epl", "soccer_spain_la_liga", "soccer_italy_serie_a", 
+        "soccer_germany_bundesliga", "soccer_france_ligue_one", 
+        "soccer_usa_mls", "soccer_copa_libertadores", "soccer_copa_sudamericana"
+    ]
+    
+    for deporte in deportes_a_buscar:
+        url = f"https://api.the-odds-api.com/v4/sports/{deporte}/odds"
+        try:
+            respuesta = requests.get(url, params={
+                "apiKey": api_key, 
+                "regions": "us,eu", 
+                "markets": "h2h,totals,btts", # Mercados añadidos
+                "oddsFormat": "decimal"
+            }, timeout=3)
+            
+            if respuesta.status_code == 200:
+                datos = respuesta.json()
+                for partido in datos:
+                    api_home = partido.get('home_team', '').lower()
+                    api_away = partido.get('away_team', '').lower()
+                    
+                    palabra_local = equipo_local.split()[0].lower()
+                    palabra_vis = equipo_vis.split()[0].lower()
+                    
+                    if palabra_local in api_home or palabra_vis in api_away:
+                        if 'bookmakers' in partido and len(partido['bookmakers']) > 0:
+                            mercados_extraidos = {}
+                            # Recorrer todos los mercados disponibles en la primera casa de apuestas
+                            for mercado in partido['bookmakers'][0]['markets']:
+                                mercados_extraidos[mercado['key']] = mercado['outcomes']
+                            return mercados_extraidos
+        except:
+            continue
+            
+    return None
 
 
 # ==========================================
