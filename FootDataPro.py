@@ -11,13 +11,10 @@ st.set_page_config(page_title="FootDataPro", layout="wide")
 # ==========================================
 # 0. INICIALIZACIÓN DE LA IA Y API DE CUOTAS GLOBAL
 # ==========================================
-import os
+from groq import Groq
 
 try:
-    # Configuramos la variable de entorno que lee el token de Google Cloud
-    os.environ["GEMINI_API_KEY"] = st.secrets["GEMINI_API_KEY"]
-    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-    cliente_ia = genai.GenerativeModel("gemini-1.5-flash")
+    cliente_ia = Groq(api_key=st.secrets["GROQ_API_KEY"])
     ia_activa = True
 except Exception as e:
     cliente_ia = None
@@ -117,26 +114,37 @@ except Exception as e:
 # ==========================================
 def generar_analisis_groq(local, visitante, prob_local, prob_empate, prob_visit, prob_over, prob_btts):
     if not ia_activa or cliente_ia is None:
-        return "⚠️ La IA de Gemini não está configurada correctamente. Verifica tu API Key en los secretos de Streamlit."
+        return "⚠️ La IA de Groq no está configurada correctamente. Verifica tu API Key en los secretos de Streamlit."
     
     prompt_usuario = f"""
-    Actúa como el motor analítico de una plataforma predictiva profesional. Tu único objetivo es identificar apuestas de valor matemático (EV+). Analiza los siguientes porcentajes calculados por el modelo de Poisson para el partido {local} vs {visitante} y cruza los datos para sugerir exclusivamente el mercado donde la estadística supera la percepción pública, incluso si implica respaldar al 'underdog' o ir en contra de la tendencia de goles:
-    
+    Partido: {local} vs {visitante}
     - Victoria {local}: {prob_local}%
     - Empate: {prob_empate}%
     - Victoria {visitante}: {prob_visit}%
     - Más de 2.5 goles (Over 2.5): {prob_over}%
     - Ambos marcan (BTTS): {prob_btts}%
-    
-    Omite saludos, sé tajante, analítico, escribe máximo 4 líneas y enfócate en el rendimiento a largo plazo.
     """
 
     try:
-        respuesta = cliente_ia.generate_content(prompt_usuario)
-        return respuesta.text.strip()
+        respuesta = cliente_ia.chat.completions.create(
+            messages=[
+                {
+                    "role": "system", 
+                    "content": "Eres el motor analítico de una plataforma predictiva profesional. Tu único objetivo es identificar apuestas de valor matemático (EV+). Analiza los porcentajes proporcionados y cruza los datos para sugerir exclusivamente el mercado donde la estadística supera la percepción pública, incluso si implica respaldar al 'underdog' o ir en contra de la tendencia de goles. Omite saludos, sé tajante, analítico, escribe máximo 4 líneas y enfócate en el rendimiento a largo plazo."
+                },
+                {
+                    "role": "user", 
+                    "content": prompt_usuario
+                }
+            ],
+            model="llama3-8b-8192",
+            temperature=0.6,
+            max_tokens=200
+        )
+        return respuesta.choices[0].message.content.strip()
     
     except Exception as e:
-        return f"⚠️ Error de conexión con Gemini: No se pudo generar el análisis en este momento."
+        return "⚠️ Error de conexión con Groq: No se pudo generar el análisis en este momento."
 
 # ==========================================
 # 0. BLOQUE DE ESTILOS Y FONDO (Bordes Verdes)
