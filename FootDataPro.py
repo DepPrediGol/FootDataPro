@@ -111,32 +111,38 @@ except Exception as e:
 # CEREBRO ANALÍTICO LOCAL (MOTOR INTELIGENTE)
 # ==========================================
 def generar_analisis_groq(local, visitante, prob_local, prob_empate, prob_visit, prob_over, prob_btts):
-    """Genera un análisis experto dinámico basado en reglas ponderadas de Poisson."""
-    favorito = local if prob_local > prob_visit else visitante
-    max_prob = max(prob_local, prob_visit)
+    if not ia_activa or cliente_ia is None:
+        return "⚠️ La IA de Groq no está configurada correctamente. Verifica tu API Key en los secretos de Streamlit."
     
-    if max_prob >= 60:
-        tendencia = f"marcada superioridad del **{favorito}** ({max_prob}%), perfilándose como el claro dominador del encuentro."
-        recomendacion = f"Victoria directa o Hándicap favorable para {favorito}."
-    elif max_prob >= 45:
-        tendencia = f"leve favoritismo para el **{favorito}** ({max_prob}%), aunque con resistencia esperada del rival."
-        recomendacion = f"Doble oportunidad o victoria simple con resguardo."
-    else:
-        tendencia = f"alta paridad estadística; un choque sumamente cerrado con un {prob_empate}% de probabilidad de empate."
-        recomendacion = f"Empate apuesta no válida (DNB) o pocos goles."
+    prompt_usuario = f"""
+    Partido: {local} vs {visitante}
+    - Victoria {local}: {prob_local}%
+    - Empate: {prob_empate}%
+    - Victoria {visitante}: {prob_visit}%
+    - Más de 2.5 goles (Over 2.5): {prob_over}%
+    - Ambos marcan (BTTS): {prob_btts}%
+    """
 
-    goles_comentario = ""
-    if prob_over >= 65:
-        goles_comentario = f"Alta expectativa ofensiva con un {prob_over}% para la línea de +2.5 goles."
-    elif prob_over <= 40:
-        goles_comentario = f"Tendencia a un desarrollo táctico y cerrado, con un {round(100 - prob_over, 1)}% de probabilidades de ver -2.5 goles."
-    else:
-        goles_comentario = f"Ritmo de anotaciones moderado con un {prob_over}% en el mercado de +2.5."
-
-    btts_comentario = f"La probabilidad de que ambos equipos marquen (BTTS) se sitúa en un {prob_btts}%."
-
-    analisis_final = f"Análisis táctico: El duelo presenta {tendencia} {goles_comentario} {btts_comentario} Mercado sugerido con mayor valor estadístico: **{recomendacion}**."
-    return analisis_final
+    try:
+        respuesta = cliente_ia.chat.completions.create(
+            messages=[
+                {
+                    "role": "system", 
+                    "content": "Eres el motor analítico de una plataforma predictiva profesional. Tu único objetivo es identificar apuestas de valor matemático (EV+). Analiza los porcentajes proporcionados y cruza los datos para sugerir exclusivamente el mercado donde la estadística supera la percepción pública, incluso si implica respaldar al 'underdog' o ir en contra de la tendencia de goles. Omite saludos, sé tajante, analítico, escribe máximo 4 líneas y enfócate en el rendimiento a largo plazo."
+                },
+                {
+                    "role": "user", 
+                    "content": prompt_usuario
+                }
+            ],
+            model="llama3-8b-8192",
+            temperature=0.6,
+            max_tokens=200
+        )
+        return respuesta.choices[0].message.content.strip()
+    
+    except Exception as e:
+        return "⚠️ Error de conexión con Groq: No se pudo generar el análisis en este momento."
 
 # ==========================================
 # 0. BLOQUE DE ESTILOS Y FONDO (Bordes Verdes)
