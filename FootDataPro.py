@@ -137,7 +137,7 @@ def generar_analisis_groq(local, visitante, prob_local, prob_empate, prob_visit,
                     "content": prompt_usuario
                 }
             ],
-            model="llama-3.1-8b-instant",
+            model="llama3-8b",
             temperature=0.6,
             max_tokens=200
         )
